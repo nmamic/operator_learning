@@ -233,6 +233,21 @@ class FNO(nn.Module):
             x[batchsize, da, nParticle] -> [batchsize, du, nParticle]
         """
 
+        # calculate the bounds if necessary for model that is used
+        uses_bounds = self.use_finufft or (self.use_dse and self.matrix_free)
+        if self.dataClass == 'pic' and uses_bounds:
+            n_dims = self.n_dims
+            lo = [x_pos_min, y_pos_min, z_pos_min]
+            hi = [x_pos_max, y_pos_max, z_pos_max]
+            if any(v is None for v in lo[:n] + hi[:n]):
+                group = self.tp_mesh.get_group() if self.tp_mesh is not None else None
+                mins, maxs = calculate_bounds_over_tp_group(x[:, :n, :], group)
+                for d in range(n):
+                    if lo[d] is None: lo[d] = mins[d]
+                    if hi[d] is None: hi[d] = maxs[d]
+                x_pos_min, y_pos_min, z_pos_min = lo
+                x_pos_max, y_pos_max, z_pos_max = hi
+
         if self.use_dse:
             if self.n_dims == 1:
                 if self.matrix_free:

@@ -291,3 +291,29 @@ class ContiguousGrad(torch.autograd.Function):
     @staticmethod
     def backward(ctx, grad):
         return grad.contiguous()
+
+@torch.no_grad()
+def calculate_bounds_over_tp_group(positions, tp_group=None):
+    """
+    Calculates per-axis bounds of a given set of particle positions over a TP group.
+
+    positions: [batch_size, n_dims, N_local] 
+    tp_group: either the torch process group or None (no tp sharding)
+    """
+    n_dims = positions.shape[1]
+    if positions.shape[0] == 0 or positions.shape[2] == 0:
+        # the case where there are no positions given, in which case
+        # the identity values are given for min/max (+-inf)
+        # without this guard, it could happen that a rank gets 0 particles, torch.amin
+        # throws error expecting non-zero tensor, other ranks hang
+        pos_min = torch.full((n_dims,), float("inf"), dtype=positions.dtype)
+        pos_max = torch.full((n_dims,), float("-inf"), dtype=positions.dtype)
+    else:
+        pos_min = torch.amin(positions, dim=(0, 2))
+        pos_max = torch.amax(positions, dim=(0, 2))
+
+    if tp_group is not None:
+        dist.all_reduce(pos_min, op=dist.ReduceOp.MIN, group=tp_group)
+        dist.all_reduce(pos_max, op=dist.ReduceOp.MAX, group=tp_group)
+    
+    return pos_min, pos_max
