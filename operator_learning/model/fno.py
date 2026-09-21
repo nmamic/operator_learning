@@ -6,7 +6,7 @@ import torch.nn as nn
 import pandas as pd
 import torch.nn.functional
 from operator_learning.utils.memory_utils import CudaMemoryDebugger, format_mem
-from operator_learning.utils.misc import print_rank0, _dump_tensor
+from operator_learning.utils.misc import print_rank0, _dump_tensor, calculate_bounds_over_tp_group
 from operator_learning.layers import SpectralConv, SkipConnection, GridLinear, MLP, DSELayer, NUFFTLayer
 from operator_learning.data.transforms.vandermonde import VandermondeTransform
 from operator_learning.data.transforms.vandermonde_matrix_free import VandermondeTransformMatrixFree
@@ -236,7 +236,7 @@ class FNO(nn.Module):
         # calculate the bounds if necessary for model that is used
         uses_bounds = self.use_finufft or (self.use_dse and self.matrix_free)
         if self.dataClass == 'pic' and uses_bounds:
-            n_dims = self.n_dims
+            n = self.n_dims
             lo = [x_pos_min, y_pos_min, z_pos_min]
             hi = [x_pos_max, y_pos_max, z_pos_max]
             if any(v is None for v in lo[:n] + hi[:n]):
