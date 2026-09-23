@@ -145,8 +145,6 @@ class SpectralConv_dse(nn.Module):
             n_global = x.size(-1)
 
         x = (x / n_global) * self.dim
-
-        # x = (x / (x.size(-1) * self.tp_size)) * self.dim 
         
         # _dump_tensor("x_out", x)
 
