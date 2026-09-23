@@ -137,7 +137,16 @@ class SpectralConv_dse(nn.Module):
         # _dump_tensor("x_inv", x)
         # print(f'x_inv: {x.dtype}', flush=True)
 
-        x = (x / (x.size(-1) * self.tp_size)) * self.dim 
+        if self.tp_size > 1:
+            n_global = torch.tensor(x.size(-1), device=x.device, dtype=torch.int64)
+            torch.distributed.all_reduce(n_global, op=torch.distributed.ReduceOp.SUM,
+                                        group=self.tp_mesh.get_group())
+        else:
+            n_global = x.size(-1)
+
+        x = (x / n_global) * self.dim
+
+        # x = (x / (x.size(-1) * self.tp_size)) * self.dim 
         
         # _dump_tensor("x_out", x)
 
