@@ -317,3 +317,14 @@ def calculate_bounds_over_tp_group(positions, tp_group=None):
         dist.all_reduce(pos_max, op=dist.ReduceOp.MAX, group=tp_group)
     
     return pos_min, pos_max
+
+def map_to_2pi(pos, lo, hi):
+    """
+    Affine map of positions onto [0, 2pi] using bounds lo, hi (defaults are min/max).
+    """
+    if lo is None: lo = torch.min(pos)
+    if hi is None: hi = torch.max(pos)
+    lo = torch.as_tensor(lo, dtype=pos.dtype, device=pos.device)
+    hi = torch.as_tensor(hi, dtype=pos.dtype, device=pos.device)
+    denom = torch.where(hi > lo, hi - lo, torch.ones_like(hi)) # guard against zero division
+    return (pos - lo) * (2 * torch.pi) / denom
