@@ -2,7 +2,6 @@ import torch
 import numpy as np
 from torchkbnufft import KbNufft, KbNufftAdjoint, ToepNufft, calc_toeplitz_kernel
 import pytorch_finufft as fin
-from operator_learning.utils.misc import map_to_2pi
 
 class NUFFTTransform:
     """
@@ -97,19 +96,33 @@ class Finufft:
         assert dim in (1, 2, 3), "dim must be 1 or 2 or 3"
         self.dim = dim
         self.kX = 2*kX
+        if x_pos_min is None:
+            x_pos_min = torch.min(x_positions) 
+        if x_pos_max is None:
+            x_pos_max = torch.max(x_positions)
+        x_positions = x_positions - x_pos_min              
+        self.x_positions = x_positions * 2*torch.pi /  x_pos_max 
         self.batch_size = x_positions.shape[0]
         self.number_points = x_positions.shape[1]
         self.dtype = dtype
       
-        self.x_positions = map_to_2pi(x_positions, x_pos_min, x_pos_max)
-        
         if dim > 1:  
+            if y_pos_min is None:
+                y_pos_min = torch.min(y_positions) 
+            if y_pos_max is None:
+                y_pos_max = torch.max(y_positions)
             self.kY = 2*kY if kY is not None else 2*kX
-            self.y_positions = map_to_2pi(y_positions, y_pos_min, y_pos_max)  
+            y_positions = y_positions - y_pos_min              
+            self.y_positions = y_positions * 2*torch.pi /y_pos_max  
            
         if dim > 2:
+            if z_pos_min is None:
+                z_pos_min = torch.min(z_positions) 
+            if z_pos_max is None:
+                z_pos_max = torch.max(z_positions)
             self.kZ = 2*kZ if kZ is not None else 2*kX
-            self.z_positions = map_to_2pi(z_positions, z_pos_min, z_pos_max)             
+            z_positions = z_positions - z_pos_min                          
+            self.z_positions = z_positions * 2*torch.pi / z_pos_max             
             
 
     def _get_pts(self, t):

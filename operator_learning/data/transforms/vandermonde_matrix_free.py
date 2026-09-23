@@ -1,5 +1,5 @@
 import torch
-from operator_learning.utils.misc import einsum_complexhalf, map_to_2pi
+from operator_learning.utils.misc import einsum_complexhalf
 
 class VandermondeTransformMatrixFree:
     """
@@ -14,26 +14,43 @@ class VandermondeTransformMatrixFree:
         assert dim in (1, 2, 3), "dim must be 1 or 2 or 3"
         self.dim = dim
         self.kX = kX
+        if x_pos_min is None:
+            x_pos_min = torch.min(x_positions) 
+        if x_pos_max is None:
+            x_pos_max = torch.max(x_positions)
+        x_positions = x_positions - x_pos_min              
+        self.x_positions = x_positions * 2*torch.pi /  x_pos_max 
+        self.X_ = torch.cat((torch.arange(self.kX, dtype=dtype, device=device), 
+                             torch.arange(start=-(self.kX), end=0, dtype=dtype, device=device)), 
+                             0)
         self.batch_size = x_positions.shape[0]
         self.number_points = x_positions.shape[1]
-        self.x_positions = map_to_2pi(x_positions, x_pos_min, x_pos_max)
-        self.X_ = torch.cat((torch.arange(self.kX, dtype=dtype, device=device),
-                             torch.arange(start=-self.kX, end=0, dtype=dtype, device=device)), 0)
-        self.Fx = torch.exp(-1j * self.X_[None, :, None] * self.x_positions[:, None, :])  # (batch, 2*kX, nParticle)
+        self.Fx = torch.exp(-1j * self.X_[None, :, None] * self.x_positions[:, None, :]) #(batchsize, 2*kX, nParticle)
 
-        if dim > 1:
+        if dim > 1:  
+            if y_pos_min is None:
+                y_pos_min = torch.min(y_positions) 
+            if y_pos_max is None:
+                y_pos_max = torch.max(y_positions)
             self.kY = kY if kY is not None else kX
-            self.y_positions = map_to_2pi(y_positions, y_pos_min, y_pos_max)
             self.Y_ = torch.cat((torch.arange(self.kY, dtype=dtype, device=device),
-                                 torch.arange(start=-self.kY, end=0, dtype=dtype, device=device)), 0)
-            self.Fy = torch.exp(-1j * self.Y_[None, :, None] * self.y_positions[:, None, :])  # (batch, 2*kY, nParticle)
-
+                                 torch.arange(start=-(self.kY), end=0, dtype=dtype, device=device)),
+                                 0)
+            y_positions = y_positions - y_pos_min              
+            self.y_positions = y_positions * 2*torch.pi /y_pos_max  
+            self.Fy = torch.exp(-1j * self.Y_[None, :, None] * self.y_positions[:, None, :]) #(batchsize, 2*kY, nParticle)
         if dim > 2:
+            if z_pos_min is None:
+                z_pos_min = torch.min(z_positions) 
+            if z_pos_max is None:
+                z_pos_max = torch.max(z_positions)
             self.kZ = kZ if kZ is not None else kX
-            self.z_positions = map_to_2pi(z_positions, z_pos_min, z_pos_max)
             self.Z_ = torch.cat((torch.arange(self.kZ, dtype=dtype, device=device),
-                                 torch.arange(start=-self.kZ, end=0, dtype=dtype, device=device)), 0)
-            self.Fz = torch.exp(-1j * self.Z_[None, :, None] * self.z_positions[:, None, :])  # (batch, 2*kZ, nParticle)
+                                 torch.arange(start=-(self.kZ), end=0, dtype=dtype, device=device)),
+                                 0)
+            z_positions = z_positions - z_pos_min                          
+            self.z_positions = z_positions * 2*torch.pi / z_pos_max             
+            self.Fz = torch.exp(-1j * self.Z_[None, :, None] * self.z_positions[:, None, :]) #(batchsize, 2*kZ, nParticle)
 
 
     def _forward_1d(self, data):
