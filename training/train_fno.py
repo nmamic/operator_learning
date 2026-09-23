@@ -888,8 +888,8 @@ class FourierNeuralOperator:
 
         if hasattr(self, "modelConfig") and self.modelConfig != checkpoint['model']:
             for key, value in self.modelConfig.items():
-                if key not in checkpoint['model']:
-                    checkpoint['model'][key] = value
+                #if key not in checkpoint['model']:
+                checkpoint['model'][key] = value
             print_rank0("WARNING : different model settings in config file,"
                     " overwriting with config from checkpoint ...")
 
