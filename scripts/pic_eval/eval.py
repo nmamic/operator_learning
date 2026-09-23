@@ -108,6 +108,7 @@ if tp_size > 1:
 else:
     infer_parallel_strategy = None
 
+modelConfig = config["model"]
 if checkpoint is not None:
     fno_model = FourierNeuralOperator(
         checkpoint=checkpoint,
@@ -116,6 +117,7 @@ if checkpoint is not None:
         data_class='pic',
         model_dtype=model_dtype,
         fno_dtype=fno_dtype,
+        model=modelConfig,
         parallel_strategy=infer_parallel_strategy,
     )
     # extract TP params to later pass into PICVisualizer

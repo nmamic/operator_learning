@@ -101,7 +101,7 @@ class Finufft:
         if x_pos_max is None:
             x_pos_max = torch.max(x_positions)
         x_positions = x_positions - x_pos_min              
-        self.x_positions = x_positions * 2*torch.pi /  x_pos_max 
+        self.x_positions = x_positions * 2*torch.pi /  (x_pos_max - x_pos_min) 
         self.batch_size = x_positions.shape[0]
         self.number_points = x_positions.shape[1]
         self.dtype = dtype
@@ -113,7 +113,7 @@ class Finufft:
                 y_pos_max = torch.max(y_positions)
             self.kY = 2*kY if kY is not None else 2*kX
             y_positions = y_positions - y_pos_min              
-            self.y_positions = y_positions * 2*torch.pi /y_pos_max  
+            self.y_positions = y_positions * 2*torch.pi / (y_pos_max - y_pos_min)  
            
         if dim > 2:
             if z_pos_min is None:
@@ -122,7 +122,7 @@ class Finufft:
                 z_pos_max = torch.max(z_positions)
             self.kZ = 2*kZ if kZ is not None else 2*kX
             z_positions = z_positions - z_pos_min                          
-            self.z_positions = z_positions * 2*torch.pi / z_pos_max             
+            self.z_positions = z_positions * 2*torch.pi / (z_pos_max - z_pos_min)              
             
 
     def _get_pts(self, t):
@@ -150,7 +150,7 @@ class Finufft:
         returns (dv, modes_flat) complex
         """
         # finufft type1 with batched sources: values (dv, N) -> output (dv, *n_modes)
-        out = fin.functional.finufft_type1(pts, data_t, self._n_modes)
+        out = fin.functional.finufft_type1(pts, data_t, self._n_modes, eps=1e-6, modeord=1, isign=-1, gpu_method=3)
         return out.reshape(data_t.shape[0], -1)  # (dv, modes_flat)
 
     def _inverse_single(self, pts, data_t):
@@ -160,7 +160,7 @@ class Finufft:
         returns (dv, N) complex
         """
         grid = data_t.reshape(data_t.shape[0], *self._n_modes)  # (dv, *n_modes)
-        out = fin.functional.finufft_type2(pts, grid,)
+        out = fin.functional.finufft_type2(pts, grid, eps=1e-6, modeord=1, isign=1)
         return out  # (dv, N)
 
     def forward(self, data):
