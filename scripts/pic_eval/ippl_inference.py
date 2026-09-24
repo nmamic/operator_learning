@@ -26,9 +26,32 @@ def init(rank, size, device_id, params):
         "gpus_per_node": cfg.parallel_strategy.get("gpus_per_node", 4),
         "ddp": True, "tp": True, "tp_size": size,
     }
+
+    ps = cfg.get("parallel_strategy", {})
+    if size == 1:
+        strategy = None
+    else:
+        cfg_tp_size = ps.get("tp_size")
+        cfg_tp      = ps.get("tp")
+        if cfg_tp is False or (cfg_tp_size is not None and cfg_tp_size != size):
+            if rank == 0:
+                print(f"[ippl_inference] parallel_strategy in {os.environ['IPPL_CONFIG']} "
+                    f"(tp={cfg_tp}, tp_size={cfg_tp_size}) is ignored for the coupled run, "
+                    f"as tensor parallelism is set from the IPPL rank count (tp_size={size}). "
+                    f"Each rank holds only its own particles, so the spectral transform "
+                    f"must be all-reduced across all ranks.", flush=True)
+
+        strategy = {
+            "gpus_per_node": ps.get("gpus_per_node", 4),
+            "ddp":     True,
+            "tp":      True,
+            "tp_size": size,  # from ippl::Comm->size(), never from the config, so it is coupled
+        }
+
     model = FourierNeuralOperator(
         checkpoint=cfg.train.checkpoint, eval_only=True, device="cuda",
         data_class="pic", model_dtype=torch.float32, fno_dtype=torch.float32,
+        model=cfg.get("model"),
         parallel_strategy=strategy)
 
     assert torch.cuda.current_device() == device_id, (
