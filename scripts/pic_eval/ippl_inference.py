@@ -72,6 +72,7 @@ def init(rank, size, device_id, params):
               N=int(params["totalP"]), Q=float(params["q_per_particle"]),
               scale=float(params["Q_total"]) / float(cp.prod(L) ** (2/3)))
 
+@torch.no_grad()
 def infer(R_cap, E_cap, nlocal):
     t0 = time.perf_counter()
     R = from_dlpack(R_cap).T # (dim, N_local) float64, this is transposed from IPPL
