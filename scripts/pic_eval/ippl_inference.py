@@ -13,6 +13,9 @@ from operator_learning.utils.misc import readConfig
 _S = {}
 
 def init(rank, size, device_id, params):
+    torch.cuda.set_device(device_id) #set device for torch and cupy first
+    cp.cuda.Device(device_id).use()
+
     os.environ["RANK"] = str(rank)
     os.environ["WORLD_SIZE"] = str(size)
     os.environ["LOCAL_RANK"] = str(device_id)
@@ -58,7 +61,6 @@ def init(rank, size, device_id, params):
         f"rank {rank}: torch on device {torch.cuda.current_device()}, "
         f"Kokkos on {device_id}")
     
-    cp.cuda.Device(device_id).use()
 
     with h5py.File(cfg.data.dataFile, "r") as d:
         out_mean = d["infos"]["output_mean"][()]
@@ -83,13 +85,16 @@ def infer(R_cap, E_cap, nlocal):
         _S["nlocal_printed"] = True
     inputs = cp.from_dlpack(R)[None, :, :].copy()
     if _S["tp_enabled"]:
-        lo = inputs.min(axis=2, keepdims=True)
-        hi = inputs.max(axis=2, keepdims=True)
         inputs = normalize_per_sample_distributed(inputs, _S["tp_mesh"])
     else:
         for ch in range(_S["dim"]):
             inputs[:, ch, :] = normalize_per_sample(inputs[:, ch, :])
 
+    # free, total = torch.cuda.mem_get_info()
+    # mp = cp.get_default_memory_pool()
+    # print(f"[rank {os.environ['RANK']}] nlocal {nlocal} driver free {free/2**30:.2f} GiB, "
+    #   f"torch reserved {torch.cuda.memory_reserved()/2**30:.2f} GiB, "
+    #   f"cupy total {mp.total_bytes()/2**30:.2f} used {mp.used_bytes()/2**30:.2f}", flush=True)
     pred = _S["model"](inputs).squeeze(0)
 
     # taken directly from PicND 3D branch
@@ -105,6 +110,8 @@ def infer(R_cap, E_cap, nlocal):
 
     E.copy_(torch.from_dlpack(pred.toDlpack()).to(torch.float64))
     torch.cuda.synchronize()
+    # print(f"[rank {os.environ['RANK']}] peak torch alloc "
+    #   f"{torch.cuda.max_memory_allocated()/2**30:.2f} GiB @ nlocal {nlocal}", flush=True)
 
 def finalize():
     if dist.is_initialized():
